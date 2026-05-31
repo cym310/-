@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>打砖块 - 电脑正常版（增强版）</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #f5f5f5;
+    padding: 20px;
+    font-family: Arial;
+  }
+
+  /* 设置面板样式 */
+  #settings-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 300px;
+    height: 100vh;
+    background: white;
+    border-left: 3px solid #333;
+    padding: 20px;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    z-index: 1000;
+    overflow-y: auto;
+  }
+  #settings-panel.active {
+    transform: translateX(0);
+  }
+  .settings-title {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+  }
+  .settings-group {
+    margin-bottom: 20px;
+  }
+  .settings-group h3 {
+    font-size: 16px;
+    margin-bottom: 10px;
+    color: #333;
+  }
+  .settings-option {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .settings-option label {
+    flex: 1;
+    font-size: 14px;
+  }
+  .settings-option input, .settings-option select {
+    width: 80px;
+    padding: 4px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+  .settings-btn {
+    padding: 8px 16px;
+    background: #0066ff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
+    width: 100%;
+  }
+  .close-settings {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #666;
+  }
+
+  #game {
+    position: relative;
+    width: 400px;
+    height: 500px;
+    background: white;
+    border: 3px solid #333;
+    overflow: hidden;
+    transition: transform 0.05s ease;
+  }
+
+  #paddle {
+    position: absolute;
+    width: 80px;
+    height: 15px;
+    background: #0066ff;
+    bottom: 20px;
+    border-radius: 4px;
+    transition: width 0.2s ease, background 0.2s ease;
+  }
+
+  #ball {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: black;
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+  }
+
+  .block {
+    position: absolute;
+    width: 46px;
+    height: 20px;
+    border-radius: 4px;
+    transition: opacity 0.1s ease;
+  }
+  .block-hard {
+    border: 2px solid #666;
+    background: #333;
+  }
+  .block-bonus {
+    background: #ffdd00;
+    box-shadow: 0 0 10px #ffdd00;
+    animation: pulse 1s infinite alternate;
+  }
+  @keyframes pulse {
+    0% { opacity: 1; }
+    100% { opacity: 0.8; }
+  }
+
+  .trail {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: #0f0;
+    border-radius: 50%;
+    opacity: 0.2;
+  }
+
+  .score-fly {
+    position: absolute;
+    color: #ff8800;
+    font-weight: bold;
+    pointer-events: none;
+    animation: fly 0.6s forwards;
+    font-size: 14px;
+  }
+
+  @keyframes fly {
+    0% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-30px); }
+  }
+
+  .info {
+    margin: 10px 0;
+    font-weight: bold;
+    font-size: 18px;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+
+  button {
+    padding: 6px 12px;
+    margin: 0 4px;
+    background: #0066ff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  button:hover {
+    background: #0044cc;
+  }
+
+  .shake {
+    animation: shake 0.1s ease-in-out;
+  }
+  @keyframes shake {
+    0% { transform: translate(0, 0); }
+    25% { transform: translate(3px, 0); }
+    50% { transform: translate(0, 0); }
+    75% { transform: translate(-3px, 0); }
+    100% { transform: translate(0, 0); }
+  }
+
+  #pause-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 30px;
+    font-weight: bold;
+    z-index: 100;
+  }
+
+  #win-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+    display: none;
+    z-index: 1001;
+    text-align: center;
+  }
+  #win-modal h2 {
+    margin-bottom: 20px;
+    color: #0066ff;
+  }
+
+  .power-up {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    animation: float 1s ease-in-out infinite alternate;
+  }
+  @keyframes float {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-5px); }
+  }
+
+  .level-progress {
+    width: 400px;
+    height: 8px;
+    background: #eee;
+    border-radius: 4px;
+    margin: 10px 0;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: #0066ff;
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+</style>
+</head>
+<body>
+
+<div class="info">
+  分数: <span id="score">0</span> &nbsp; 
+  生命: <span id="life">3</span> &nbsp;
+  等级: <span id="level">1</span> &nbsp;
+  速度: <span id="speed">3</span> &nbsp;
+  砖块剩余: <span id="blocks-left">32</span>
+</div>
+
+<div>
+  <button id="start">开始</button>
+  <button id="reset">重置</button>
+  <button id="pause">暂停/继续</button>
+  <button id="sound-toggle">音效: 开</button>
+  <button id="settings-btn">设置</button>
+</div>
+
+<div class="level-progress">
+  <div id="progress-bar" class="progress-bar"></div>
+</div>
+
+<div id="game">
+  <div id="ball"></div>
+  <div id="paddle"></div>
+  <div id="pause-overlay">暂停中</div>
+</div>
+
+<!-- 设置面板 -->
+<div id="settings-panel">
+  <button class="close-settings">&times;</button>
+  <div class="settings-title">游戏设置</div>
+  
+  <div class="settings-group">
+    <h3>基础设置</h3>
+    <div class="settings-option">
+      <label>小球速度</label>
+      <input type="number" id="ball-speed" min="1" max="8" value="3">
+    </div>
+    <div class="settings-option">
+      <label>初始生命</label>
+      <input type="number" id="init-life" min="1" max="10" value="3">
+    </div>
+    <div class="settings-option">
+      <label>挡板宽度</label>
+      <input type="number" id="paddle-width" min="50" max="150" value="80">
+    </div>
+  </div>
+
+  <div class="settings-group">
+    <h3>视觉设置</h3>
+    <div class="settings-option">
+      <label>轨迹长度</label>
+      <input type="number" id="trail-length" min="5" max="50" value="20">
+    </div>
+    <div class="settings-option">
+      <label>震动效果</label>
+      <select id="shake-effect">
+        <option value="on">开启</option>
+        <option value="off">关闭</option>
+      </select>
+    </div>
+    <div class="settings-option">
+      <label>砖块颜色模式</label>
+      <select id="block-color-mode">
+        <option value="random">随机彩色</option>
+        <option value="single">单一红色</option>
+        <option value="gradient">渐变色彩</option>
+      </select>
+    </div>
+    <div class="settings-option">
+      <label>小球颜色</label>
+      <input type="color" id="ball-color" value="#000000">
+    </div>
+  </div>
+
+  <div class="settings-group">
+    <h3>难度设置</h3>
+    <div class="settings-option">
+      <label>硬砖块概率</label>
+      <input type="number" id="hard-block-chance" min="0" max="50" value="10" placeholder="%">
+    </div>
+    <div class="settings-option">
+      <label>奖励砖块概率</label>
+      <input type="number" id="bonus-block-chance" min="0" max="30" value="5" placeholder="%">
+    </div>
+    <div class="settings-option">
+      <label>砖块行数</label>
+      <input type="number" id="block-rows" min="2" max="8" value="4">
+    </div>
+  </div>
+
+  <button class="settings-btn" id="save-settings">保存设置</button>
+  <button class="settings-btn" id="reset-settings" style="background: #ff4444; margin-top: 8px;">重置默认设置</button>
+</div>
+
+<!-- 胜利弹窗 -->
+<div id="win-modal">
+  <h2>恭喜通关！</h2>
+  <p>当前等级：<span id="win-level">1</span></p>
+  <p>当前分数：<span id="win-score">0</span></p>
+  <button id="next-level" style="margin-top: 20px;">下一关</button>
+  <button id="back-to-menu" style="margin-top: 10px; background: #666;">返回主界面</button>
+</div>
+
+<script>
+  // ======================
+  // # 1 基础对象
+  // ======================
+  const game = document.getElementById('game');
+  const ball = document.getElementById('ball');
+  const paddle = document.getElementById('paddle');
+  const scoreEl = document.getElementById('score');
+  const lifeEl = document.getElementById('life');
+  const levelEl = document.getElementById('level');
+  const speedEl = document.getElementById('speed');
+  const blocksLeftEl = document.getElementById('blocks-left');
+  const pauseOverlay = document.getElementById('pause-overlay');
+  const progressBar = document.getElementById('progress-bar');
+  const settingsPanel = document.getElementById('settings-panel');
+  const winModal = document.getElementById('win-modal');
+  const winLevelEl = document.getElementById('win-level');
+  const winScoreEl = document.getElementById('win-score');
+
+  // ======================
+  // # 2 核心变量（保留原始逻辑）
+  // ======================
+  let score = 0;
+  let life = 3;
+  let dx = 3;
+  let dy = -3;
+  let running = false;
+  let paused = false;
+  let trailPoints = [];
+  let maxTrail = 20;
+  
+  // 扩展变量（新增）
+  let level = 1;
+  let baseSpeed = 3;
+  let blocksTotal = 32;
+  let blocksLeft = 32;
+  let soundEnabled = true;
+  let shakeEnabled = true;
+  let blockColorMode = 'random';
+  let hardBlockChance = 10;
+  let bonusBlockChance = 5;
+  let paddleWidth = 80;
+  let initLife = 3;
+  let powerUpSystemEnabled = true;
+  
+  // 颜色数组（20种+彩色砖块）
+  const blockColors = [
+    '#ff4444', '#ff8800', '#ffdd00', '#44dd44', '#44aaff', 
+    '#8855ff', '#ff55cc', '#00cccc', '#ff9999', '#99ff99',
+    '#9999ff', '#ff99ff', '#ffff99', '#cc8800', '#88cc00',
+    '#00cc88', '#0088cc', '#8800cc', '#cc0088', '#cc0000',
+    '#777777', '#555555', '#333333', '#000000', '#ffffff'
+  ];
+
+  // ======================
+  // # 3 鼠标控制挡板（保留原始逻辑）
+  // ======================
+  game.addEventListener('mousemove', (e) => {
+    const rect = game.getBoundingClientRect();
+    let x = e.clientX - rect.left - paddle.offsetWidth / 2;
+    if (x < 0) x = 0;
+    if (x + paddle.offsetWidth > game.clientWidth) {
+      x = game.clientWidth - paddle.offsetWidth;
+    }
+    paddle.style.left = x + 'px';
+  });
+
+  // ======================
+  // # 4 键盘控制（新增功能1）
+  // ======================
+  document.addEventListener('keydown', (e) => {
+    const paddleX = parseFloat(paddle.style.left) || 0;
+    switch(e.key) {
+      case 'ArrowLeft':
+        paddle.style.left = Math.max(0, paddleX - 10) + 'px';
+        break;
+      case 'ArrowRight':
+        paddle.style.left = Math.min(game.clientWidth - paddle.offsetWidth, paddleX + 10) + 'px';
+        break;
+      case ' ': // 空格键暂停
+        togglePause();
+        break;
+      case 'Escape': // ESC重置
+        resetAll();
+        break;
+    }
+  });
+
+  // ======================
+  // # 5 生成砖块（修改颜色+新增特殊砖块）
+  // ======================
+  function createBlocks() {
+    document.querySelectorAll('.block').forEach(b => b.remove());
+    document.querySelectorAll('.power-up').forEach(p => p.remove());
+    
+    const rowCount = parseInt(document.getElementById('block-rows').value) || 4;
+    blocksTotal = rowCount * 8;
+    blocksLeft = blocksTotal;
+    blocksLeftEl.textContent = blocksLeft;
+    progressBar.style.width = '0%';
+
+    for (let r = 0; r < rowCount; r++) {
+      for (let c = 0; c < 8; c++) {
+        const b = document.createElement('div');
+        b.className = 'block';
+        
+        // 随机特殊砖块
+        const randomNum = Math.random() * 100;
+        if (randomNum < hardBlockChance) {
+          b.classList.add('block-hard');
+          b.dataset.hits = 2;
+        } else if (randomNum < hardBlockChance + bonusBlockChance) {
+          b.classList.add('block-bonus');
+        } else {
+          // 砖块颜色模式
+          if (blockColorMode === 'random') {
+            b.style.backgroundColor = blockColors[Math.floor(Math.random() * blockColors.length)];
+          } else if (blockColorMode === 'single') {
+            b.style.backgroundColor = '#ff4444'; // 原始红色
+          } else if (blockColorMode === 'gradient') {
+            b.style.backgroundColor = blockColors[r % blockColors.length];
+          }
+        }
+        
+        b.style.left = c * 50 + 'px';
+        b.style.top = r * 25 + 40 + 'px';
+        game.appendChild(b);
+      }
+    }
+  }
+
+  // ======================
+  // # 6 绿色轨迹（保留原始逻辑）
+  // ======================
+  function clearTrail() {
+    document.querySelectorAll('.trail').forEach(t => t.remove());
+  }
+
+  function drawTrail(x, y) {
+    trailPoints.push({ x, y });
+    if (trailPoints.length > maxTrail) trailPoints.shift();
+    clearTrail();
+    trailPoints.forEach(p => {
+      const t = document.createElement('div');
+      t.className = 'trail';
+      t.style.left = p.x + 'px';
+      t.style.top = p.y + 'px';
+      game.appendChild(t);
+    });
+  }
+
+  // ======================
+  // # 7 分数飘字（保留原始逻辑）
+  // ======================
+  function addScoreFly(n, x, y) {
+    const f = document.createElement('div');
+    f.className = 'score-fly';
+    f.innerText = '+' + n;
+    f.style.left = x + 'px';
+    f.style.top = y + 'px';
+    game.appendChild(f);
+    setTimeout(() => f.remove(), 600);
+  }
+
+  // ======================
+  // # 8 震动效果（新增功能2）
+  // ======================
+  function shakeGame() {
+    if (!shakeEnabled) return;
+    game.classList.add('shake');
+    setTimeout(() => {
+      game.classList.remove('shake');
+    }, 100);
+  }
+
+  // ======================
+  // # 9 音效系统（新增功能3）
+  // ======================
+  let audioContext;
+  function playSound(type) {
+    if (!soundEnabled) return;
+    if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    gainNode.gain.value = 0.1;
+    
+    switch(type) {
+      case 'block':
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 880;
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.1);
+        break;
+      case 'paddle':
+        oscillator.type = 'square';
+        oscillator.frequency.value = 440;
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.1);
+        break;
+      case 'wall':
+        oscillator.type = 'sawtooth';
+        oscillator.frequency.value = 220;
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.1);
+        break;
+      case 'gameover':
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 110;
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.5);
+        break;
+      case 'levelup':
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 660;
+        oscillator.frequency.setValueAtTime(880, audioContext.currentTime + 0.1);
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.3);
+        break;
+    }
+  }
+
+  // ======================
+  // # 10 道具系统（新增功能4）
+  // ======================
+  function createPowerUp(x, y) {
+    if (!powerUpSystemEnabled) return;
+    
+    const powerUp = document.createElement('div');
+    powerUp.className = 'power-up';
+    powerUp.style.left = (x - 10) + 'px';
+    powerUp.style.top = y + 'px';
+    powerUp.style.background = '#ff55cc';
+    powerUp.style.boxShadow = '0 0 8px #ff55cc';
+    game.appendChild(powerUp);
+
+    // 道具下落
+    let powerUpY = y;
+    const powerUpInterval = setInterval(() => {
+      powerUpY += 2;
+      powerUp.style.top = powerUpY + 'px';
+
+      // 检测道具与挡板碰撞
+      const powerUpRect = {
+        left: x - 10,
+        right: x + 10,
+        top: powerUpY,
+        bottom: powerUpY + 20
+      };
+      const paddleRect = {
+        left: parseFloat(paddle.style.left) || 0,
+        right: (parseFloat(paddle.style.left) || 0) + paddle.offsetWidth,
+        top: game.clientHeight - 35,
+        bottom: game.clientHeight - 20
+      };
+
+      if (
+        powerUpRect.bottom >= paddleRect.top &&
+        powerUpRect.top <= paddleRect.bottom &&
+        powerUpRect.right > paddleRect.left &&
+        powerUpRect.left < paddleRect.right
+      ) {
+        clearInterval(powerUpInterval);
+        powerUp.remove();
+        // 挡板变大效果
+        paddle.style.width = '120px';
+        setTimeout(() => {
+          paddle.style.width = paddleWidth + 'px';
+        }, 5000);
+        playSound('block');
+      }
+
+      if (powerUpY > game.clientHeight) {
+        clearInterval(powerUpInterval);
+        powerUp.remove();
+      }
+    }, 30);
+  }
+
+  // ======================
+  // # 11 重置小球（保留原始逻辑）
+  // ======================
+  function resetBall() {
+    ball.style.left = game.clientWidth / 2 - 7 + 'px';
+    ball.style.top = game.clientHeight / 2 + 50 + 'px';
+    dx = baseSpeed * (Math.random() > 0.5 ? 1 : -1);
+    dy = -baseSpeed;
+    trailPoints = [];
+    clearTrail();
+  }
+
+  // ======================
+  // # 12 暂停/继续（新增功能5）
+  // ======================
+  function togglePause() {
+    if (!running) return;
+    
+    paused = !paused;
+    pauseOverlay.style.display = paused ? 'flex' : 'none';
+    
+    if (!paused) {
+      loop(); // 继续游戏循环
+    }
+  }
+
+  // ======================
+  // # 13 等级提升（新增功能6）
+  // ======================
+  function levelUp() {
+    level++;
+    levelEl.textContent = level;
+    baseSpeed = Math.min(8, 3 + Math.floor((level - 1) / 2));
+    speedEl.textContent = baseSpeed;
+    playSound('levelup');
+    
+    winModal.style.display = 'none';
+    running = false;
+    resetBall();
+    createBlocks();
+    
+    // 自动开始下一关
+    setTimeout(() => {
+      running = true;
+      loop();
+    }, 500);
+  }
+
+  // ======================
+  // # 14 主循环（修复小球不动+保留原始反弹逻辑）
+  // ======================
+  function loop() {
+    if (!running || paused) return;
+
+    // 保留原始的位置计算逻辑
+    let x = parseFloat(ball.style.left) + dx;
+    let y = parseFloat(ball.style.top) + dy;
+
+    drawTrail(x, y);
+
+    // 左右反弹（原始逻辑）
+    if (x <= 0 || x + 14 >= game.clientWidth) {
+      dx = -dx;
+      shakeGame();
+      playSound('wall');
+    }
+
+    // 上反弹（原始逻辑）
+    if (y <= 0) {
+      dy = -dy;
+      shakeGame();
+      playSound('wall');
+    }
+
+    // 挡板碰撞（原始逻辑）
+    const bRect = ball.getBoundingClientRect();
+    const pRect = paddle.getBoundingClientRect();
+    const gRect = game.getBoundingClientRect();
+
+    const bBot = bRect.bottom - gRect.top;
+    const pTop = pRect.top - gRect.top;
+
+    if (
+      bBot >= pTop &&
+      bRect.left < pRect.right &&
+      bRect.right > pRect.left
+    ) {
+      dy = -Math.abs(dy);
+      shakeGame();
+      playSound('paddle');
+    }
+
+    // 砖块碰撞（增强版）
+    document.querySelectorAll('.block').forEach(block => {
+      const br = block.getBoundingClientRect();
+      if (
+        bRect.right > br.left &&
+        bRect.left < br.right &&
+        bRect.bottom > br.top &&
+        bRect.top < br.bottom
+      ) {
+        dy = -dy;
+        
+        // 硬砖块处理
+        if (block.classList.contains('block-hard')) {
+          const hits = parseInt(block.dataset.hits) - 1;
+          block.dataset.hits = hits;
+          if (hits > 0) {
+            block.style.opacity = 0.5;
+            shakeGame();
+            playSound('block');
+            return;
+          }
+        }
+        
+        // 奖励砖块掉落道具
+        if (block.classList.contains('block-bonus')) {
+          createPowerUp(br.left - gRect.left + 23, br.top - gRect.top + 10);
+        }
+        
+        // 删除砖块
+        block.remove();
+        score += 10;
+        scoreEl.textContent = score;
+        addScoreFly(10, br.x, br.y);
+        
+        // 更新剩余砖块和进度
+        blocksLeft--;
+        blocksLeftEl.textContent = blocksLeft;
+        progressBar.style.width = ((blocksTotal - blocksLeft) / blocksTotal * 100) + '%';
+        
+        // 检测通关
+        if (blocksLeft <= 0) {
+          running = false;
+          winLevelEl.textContent = level;
+          winScoreEl.textContent = score;
+          winModal.style.display = 'block';
+          playSound('levelup');
+          return;
+        }
+        
+        shakeGame();
+        playSound('block');
+      }
+    });
+
+    // 掉下去（原始逻辑）
+    if (y + 14 >= game.clientHeight) {
+      life--;
+      lifeEl.textContent = life;
+      if (life <= 0) {
+        running = false;
+        playSound('gameover');
+        setTimeout(() => {
+          alert('游戏结束！分数：' + score);
+        }, 100);
+        resetAll();
+        return;
+      } else {
+        resetBall();
+        // 关键修复：继续循环
+        requestAnimationFrame(loop);
+        return;
+      }
+    }
+
+    // 更新小球位置（核心：确保小球移动）
+    ball.style.left = x + 'px';
+    ball.style.top = y + 'px';
+    
+    // 关键修复：持续调用循环
+    requestAnimationFrame(loop);
+  }
+
+  // ======================
+  // # 15 重置游戏（增强版）
+  // ======================
+  function resetAll() {
+    score = 0;
+    life = initLife;
+    level = 1;
+    baseSpeed = parseInt(document.getElementById('ball-speed').value) || 3;
+    
+    scoreEl.textContent = score;
+    lifeEl.textContent = life;
+    levelEl.textContent = level;
+    speedEl.textContent = baseSpeed;
+    
+    running = false;
+    paused = false;
+    pauseOverlay.style.display = 'none';
+    winModal.style.display = 'none';
+    
+    createBlocks();
+    resetBall();
+    paddle.style.left = game.clientWidth / 2 - (paddleWidth / 2) + 'px';
+    paddle.style.width = paddleWidth + 'px';
+    ball.style.backgroundColor = document.getElementById('ball-color').value || '#000000';
+  }
+
+  // ======================
+  // # 16 设置面板功能（新增功能7）
+  // ======================
+  // 打开设置
+  document.getElementById('settings-btn').addEventListener('click', () => {
+    settingsPanel.classList.add('active');
+  });
+
+  // 关闭设置
+  document.querySelector('.close-settings').addEventListener('click', () => {
+    settingsPanel.classList.remove('active');
+  });
+
+  // 保存设置
+  document.getElementById('save-settings').addEventListener('click', () => {
+    baseSpeed = parseInt(document.getElementById('ball-speed').value) || 3;
+    initLife = parseInt(document.getElementById('init-life').value) || 3;
+    paddleWidth = parseInt(document.getElementById('paddle-width').value) || 80;
+    maxTrail = parseInt(document.getElementById('trail-length').value) || 20;
+    shakeEnabled = document.getElementById('shake-effect').value === 'on';
+    blockColorMode = document.getElementById('block-color-mode').value;
+    hardBlockChance = parseInt(document.getElementById('hard-block-chance').value) || 10;
+    bonusBlockChance = parseInt(document.getElementById('bonus-block-chance').value) || 5;
+    
+    speedEl.textContent = baseSpeed;
+    ball.style.backgroundColor = document.getElementById('ball-color').value || '#000000';
+    paddle.style.width = paddleWidth + 'px';
+    
+    settingsPanel.classList.remove('active');
+    resetAll();
+  });
+
+  // 重置设置
+  document.getElementById('reset-settings').addEventListener('click', () => {
+    document.getElementById('ball-speed').value = 3;
+    document.getElementById('init-life').value = 3;
+    document.getElementById('paddle-width').value = 80;
+    document.getElementById('trail-length').value = 20;
+    document.getElementById('shake-effect').value = 'on';
+    document.getElementById('block-color-mode').value = 'random';
+    document.getElementById('ball-color').value = '#000000';
+    document.getElementById('hard-block-chance').value = 10;
+    document.getElementById('bonus-block-chance').value = 5;
+    document.getElementById('block-rows').value = 4;
+  });
+
+  // ======================
+  // # 17 按钮事件（增强版）
+  // ======================
+  // 开始按钮
+  document.getElementById('start').addEventListener('click', () => {
+    if (!running && !paused) {
+      running = true;
+      loop(); // 启动循环
+    }
+  });
+
+  // 重置按钮
+  document.getElementById('reset').addEventListener('click', resetAll);
+
+  // 暂停按钮
+  document.getElementById('pause').addEventListener('click', togglePause);
+
+  // 音效开关
+  document.getElementById('sound-toggle').addEventListener('click', () => {
+    soundEnabled = !soundEnabled;
+    document.getElementById('sound-toggle').textContent = `音效: ${soundEnabled ? '开' : '关'}`;
+  });
+
+  // 下一关按钮
+  document.getElementById('next-level').addEventListener('click', levelUp);
+
+  // 返回主界面
+  document.getElementById('back-to-menu').addEventListener('click', () => {
+    winModal.style.display = 'none';
+    resetAll();
+  });
+
+  // ======================
+  // # 18 初始化（保留原始逻辑）
+  // ======================
+  window.onload = () => {
+    initLife = parseInt(document.getElementById('init-life').value) || 3;
+    paddleWidth = parseInt(document.getElementById('paddle-width').value) || 80;
+    lifeEl.textContent = initLife;
+    paddle.style.width = paddleWidth + 'px';
+    resetAll();
+  };
+</script>
+</body>
+</html>
